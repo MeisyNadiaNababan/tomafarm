@@ -15,6 +15,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _confirmPasswordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _signUp() async {
     if (!_formKey.currentState!.validate()) return;
@@ -22,7 +24,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     if (_passwordController.text != _confirmPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Passwords do not match'),
+          content: Text('Password tidak cocok'),
           backgroundColor: Colors.red,
         ),
       );
@@ -39,7 +41,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         password: _passwordController.text.trim(),
       );
       
-      // Navigate to sign in screen after successful registration
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (_) => const SignInScreen()),
@@ -48,18 +49,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Registration successful! Please sign in.'),
+          content: Text('Registrasi berhasil! Silakan sign in.'),
           backgroundColor: Colors.green,
         ),
       );
     } on FirebaseAuthException catch (e) {
-      String message = 'An error occurred';
+      String message = 'Terjadi kesalahan';
       if (e.code == 'weak-password') {
-        message = 'The password provided is too weak';
+        message = 'Password terlalu lemah';
       } else if (e.code == 'email-already-in-use') {
-        message = 'An account already exists for that email';
+        message = 'Email sudah digunakan';
       } else if (e.code == 'invalid-email') {
-        message = 'Invalid email address';
+        message = 'Format email tidak valid';
       }
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +93,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
             children: [
               const SizedBox(height: 20),
               
-              // Email Field
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -103,56 +103,73 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Masukkan email Anda';
                   }
                   if (!value.contains('@')) {
-                    return 'Please enter a valid email';
+                    return 'Masukkan email yang valid';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
               
-              // Password Field
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Masukkan password Anda';
                   }
                   if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return 'Password minimal 6 karakter';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
               
-              // Confirm Password Field
               TextFormField(
                 controller: _confirmPasswordController,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  prefixIcon: Icon(Icons.lock_outline),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: 'Konfirmasi Password',
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                obscureText: true,
+                obscureText: _obscureConfirmPassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please confirm your password';
+                    return 'Konfirmasi password Anda';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 30),
               
-              // Sign Up Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -185,11 +202,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Sign In Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Already have an account?"),
+                  const Text("Sudah punya akun?"),
                   TextButton(
                     onPressed: () {
                       Navigator.push(

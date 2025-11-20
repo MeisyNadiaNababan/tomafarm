@@ -23,7 +23,6 @@ class HomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Logo atau Title App
                   const CircleAvatar(
                     radius: 60,
                     backgroundColor: Colors.white,
@@ -35,7 +34,6 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 30),
                   
-                  // Welcome Text
                   const Text(
                     'Welcome to TomaFarm',
                     style: TextStyle(
@@ -46,15 +44,15 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'Your Farming Companion',
+                    'Your Smart Tomato Farming Companion',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 16,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 40),
                   
-                  // Login Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,
@@ -83,7 +81,6 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   
-                  // Sign Up Button
                   SizedBox(
                     width: double.infinity,
                     height: 50,

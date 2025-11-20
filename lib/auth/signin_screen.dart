@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tomafarm/screens/main_app_screen.dart';
-import 'home_screen.dart';
 import 'signup_screen.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -16,6 +14,7 @@ class _SignInScreenState extends State<SignInScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _signIn() async {
     if (!_formKey.currentState!.validate()) return;
@@ -30,32 +29,45 @@ class _SignInScreenState extends State<SignInScreen> {
         password: _passwordController.text.trim(),
       );
       
-      // Navigate to main app after successful login
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const MainAppScreen()),
-        (route) => false,
-      );
+      // Biarkan AuthWrapper menangani navigasi otomatis
+      // Tidak perlu navigate manual karena StreamBuilder di AuthWrapper
+      // akan otomatis redirect ke halaman yang sesuai
+      
     } on FirebaseAuthException catch (e) {
-      String message = 'An error occurred';
+      String message = 'Terjadi kesalahan';
       if (e.code == 'user-not-found') {
-        message = 'No user found with this email';
+        message = 'Email tidak ditemukan';
       } else if (e.code == 'wrong-password') {
-        message = 'Wrong password provided';
+        message = 'Password salah';
       } else if (e.code == 'invalid-email') {
-        message = 'Invalid email address';
+        message = 'Format email tidak valid';
+      } else if (e.code == 'invalid-credential') {
+        message = 'Email atau password salah';
       }
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Terjadi kesalahan: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -67,7 +79,7 @@ class _SignInScreenState extends State<SignInScreen> {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
@@ -76,7 +88,29 @@ class _SignInScreenState extends State<SignInScreen> {
             children: [
               const SizedBox(height: 20),
               
-              // Email Field
+              // Logo atau header
+              Center(
+                child: Column(
+                  children: [
+                    const Icon(
+                      Icons.agriculture,
+                      size: 80,
+                      color: Colors.green,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'TomaFarm',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green[700],
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                  ],
+                ),
+              ),
+              
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -87,55 +121,61 @@ class _SignInScreenState extends State<SignInScreen> {
                 keyboardType: TextInputType.emailAddress,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your email';
+                    return 'Masukkan email Anda';
                   }
                   if (!value.contains('@')) {
-                    return 'Please enter a valid email';
+                    return 'Masukkan email yang valid';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 20),
               
-              // Password Field
               TextFormField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock),
-                  border: OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.lock),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your password';
+                    return 'Masukkan password Anda';
                   }
                   if (value.length < 6) {
-                    return 'Password must be at least 6 characters';
+                    return 'Password minimal 6 karakter';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 10),
               
-              // Forgot Password
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
                   onPressed: () {
-                    // TODO: Implement forgot password
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Forgot password feature coming soon!'),
+                        content: Text('Fitur lupa password akan segera hadir!'),
                       ),
                     );
                   },
-                  child: const Text('Forgot Password?'),
+                  child: const Text('Lupa Password?'),
                 ),
               ),
               const SizedBox(height: 30),
               
-              // Login Button
               SizedBox(
                 width: double.infinity,
                 height: 50,
@@ -168,11 +208,10 @@ class _SignInScreenState extends State<SignInScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Sign Up Link
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Don't have an account?"),
+                  const Text("Belum punya akun?"),
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -181,7 +220,7 @@ class _SignInScreenState extends State<SignInScreen> {
                       );
                     },
                     child: const Text(
-                      'Sign Up',
+                      'Daftar',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,

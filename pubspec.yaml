@@ -1,5 +1,5 @@
 name: tomafarm
-description: "A new Flutter project."
+description: "Smart Tomato Farming IoT Application"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -13,6 +13,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
+  firebase_database: ^12.0.4
+  fl_chart: ^0.66.2
+  intl: ^0.18.1
+  provider: ^6.1.1
+  syncfusion_flutter_charts: ^25.1.43
+  http: ^1.1.0
 
 dev_dependencies:
   flutter_test:
