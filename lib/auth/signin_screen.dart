@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../app_user.dart';
 import 'signup_screen.dart';
+import '../navigation/farmer_navigation.dart'; // Tambahkan import ini
+import '../navigation/admin_navigation.dart'; // Tambahkan import ini
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -10,46 +13,81 @@ class SignInScreen extends StatefulWidget {
 }
 
 class _SignInScreenState extends State<SignInScreen> {
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-  bool _isLoading = false;
-  bool _obscurePassword = true;
+  final _email = TextEditingController();
+  final _pass = TextEditingController();
+  final _form = GlobalKey<FormState>();
 
-  Future<void> _signIn() async {
-    if (!_formKey.currentState!.validate()) return;
+  bool loading = false;
+  bool hidePass = true;
 
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _login() async {
+    if (!_form.currentState!.validate()) return;
+
+    setState(() => loading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _email.text.trim(),
+        password: _pass.text.trim(),
       );
-      
-      // Biarkan AuthWrapper menangani navigasi otomatis
-      // Tidak perlu navigate manual karena StreamBuilder di AuthWrapper
-      // akan otomatis redirect ke halaman yang sesuai
-      
-    } on FirebaseAuthException catch (e) {
-      String message = 'Terjadi kesalahan';
-      if (e.code == 'user-not-found') {
-        message = 'Email tidak ditemukan';
-      } else if (e.code == 'wrong-password') {
-        message = 'Password salah';
-      } else if (e.code == 'invalid-email') {
-        message = 'Format email tidak valid';
-      } else if (e.code == 'invalid-credential') {
-        message = 'Email atau password salah';
+
+      if (cred.user != null) {
+        // Preload user data
+        await AppUser.preloadUser(cred.user!.uid);
+        
+        // Get user role untuk menentukan navigasi
+        final userData = await AppUser.getUserRole(cred.user!.uid);
+        
+        if (mounted) {
+          // Tampilkan snackbar sukses
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Login berhasil"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Navigasi ke halaman yang sesuai berdasarkan role
+          Navigator.pushAndRemoveUntil(
+            context,
+            MaterialPageRoute(
+              builder: (_) => userData['role'] == 'admin' 
+                  ? const AdminNavigation() 
+                  : const FarmerNavigation(),
+            ),
+            (route) => false,
+          );
+        }
       }
-      
+    } on FirebaseAuthException catch (e) {
+      String msg = "Terjadi kesalahan";
+
+      switch (e.code) {
+        case "user-not-found":
+          msg = "Email tidak ditemukan";
+          break;
+        case "wrong-password":
+          msg = "Password salah";
+          break;
+        case "invalid-email":
+          msg = "Format email salah";
+          break;
+        case "network-request-failed":
+          msg = "Koneksi bermasalah";
+          break;
+        case "too-many-requests":
+          msg = "Terlalu banyak percobaan. Coba lagi nanti";
+          break;
+        default:
+          msg = "Login gagal: ${e.message}";
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text(msg), 
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -57,17 +95,13 @@ class _SignInScreenState extends State<SignInScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Terjadi kesalahan: ${e.toString()}'),
+            content: Text("Error: $e"), 
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -75,159 +109,111 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign In'),
+        title: const Text("Login"),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
+        padding: const EdgeInsets.all(24),
         child: Form(
-          key: _formKey,
+          key: _form,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
-              
-              // Logo atau header
-              Center(
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.agriculture,
-                      size: 80,
-                      color: Colors.green,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'TomaFarm',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green[700],
-                      ),
-                    ),
-                    const SizedBox(height: 30),
-                  ],
+
+              // ICON
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.agriculture,
+                    size: 60, color: Colors.green),
+              ),
+
+              const SizedBox(height: 20),
+
+              Text(
+                "TomaFarm",
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green.shade700,
                 ),
               ),
-              
+
+              const SizedBox(height: 30),
+
+              // EMAIL
               TextFormField(
-                controller: _emailController,
+                controller: _email,
                 decoration: const InputDecoration(
-                  labelText: 'Email',
+                  labelText: "Email",
                   prefixIcon: Icon(Icons.email),
                   border: OutlineInputBorder(),
                 ),
-                keyboardType: TextInputType.emailAddress,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Masukkan email Anda';
-                  }
-                  if (!value.contains('@')) {
-                    return 'Masukkan email yang valid';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || !v.contains("@") ? "Email tidak valid" : null,
               ),
               const SizedBox(height: 20),
-              
+
+              // PASSWORD
               TextFormField(
-                controller: _passwordController,
+                controller: _pass,
+                obscureText: hidePass,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: "Password",
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
+                        hidePass ? Icons.visibility_off : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => hidePass = !hidePass),
                   ),
                   border: const OutlineInputBorder(),
                 ),
-                obscureText: _obscurePassword,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Masukkan password Anda';
-                  }
-                  if (value.length < 6) {
-                    return 'Password minimal 6 karakter';
-                  }
-                  return null;
-                },
+                validator: (v) =>
+                    v == null || v.length < 6 ? "Minimal 6 karakter" : null,
               ),
-              const SizedBox(height: 10),
-              
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Fitur lupa password akan segera hadir!'),
-                      ),
-                    );
-                  },
-                  child: const Text('Lupa Password?'),
-                ),
-              ),
+
               const SizedBox(height: 30),
-              
+
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _signIn,
+                  onPressed: loading ? null : _login,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
-                    ),
                   ),
-                  child: _isLoading
+                  child: loading
                       ? const SizedBox(
-                          height: 20,
                           width: 20,
+                          height: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            color: Colors.white,
                           ),
                         )
                       : const Text(
-                          'SIGN IN',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
+                          "Masuk",
+                          style: TextStyle(fontSize: 16),
                         ),
                 ),
               ),
-              const SizedBox(height: 20),
-              
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text("Belum punya akun?"),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const SignUpScreen()),
-                      );
-                    },
-                    child: const Text(
-                      'Daftar',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
-                    ),
-                  ),
-                ],
+
+              const SizedBox(height: 15),
+
+              TextButton(
+                onPressed: loading 
+                    ? null 
+                    : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const SignUpScreen()),
+                        ),
+                child: const Text("Belum punya akun? Daftar"),
               ),
             ],
           ),
@@ -238,8 +224,8 @@ class _SignInScreenState extends State<SignInScreen> {
 
   @override
   void dispose() {
-    _emailController.dispose();
-    _passwordController.dispose();
+    _email.dispose();
+    _pass.dispose();
     super.dispose();
   }
 }

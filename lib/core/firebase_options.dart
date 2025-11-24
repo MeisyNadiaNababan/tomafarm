@@ -37,7 +37,7 @@ class DefaultFirebaseOptions {
     authDomain: 'tomafarm-pbl.firebaseapp.com',
     storageBucket: 'tomafarm-pbl.firebasestorage.app',
     measurementId: 'G-QSZ3FWYRZZ',
-    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app', // DARI URL ANDA
+    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
@@ -46,7 +46,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '775637856733',
     projectId: 'tomafarm-pbl',
     storageBucket: 'tomafarm-pbl.firebasestorage.app',
-    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app', // DARI URL ANDA
+    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
@@ -56,7 +56,7 @@ class DefaultFirebaseOptions {
     projectId: 'tomafarm-pbl',
     storageBucket: 'tomafarm-pbl.firebasestorage.app',
     iosBundleId: 'com.example.tomafarm',
-    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app', // DARI URL ANDA
+    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -66,7 +66,7 @@ class DefaultFirebaseOptions {
     projectId: 'tomafarm-pbl',
     storageBucket: 'tomafarm-pbl.firebasestorage.app',
     iosBundleId: 'com.example.tomafarm',
-    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app', // DARI URL ANDA
+    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
@@ -77,6 +77,6 @@ class DefaultFirebaseOptions {
     authDomain: 'tomafarm-pbl.firebaseapp.com',
     storageBucket: 'tomafarm-pbl.firebasestorage.app',
     measurementId: 'G-60HVB83NHL',
-    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app', // DARI URL ANDA
+    databaseURL: 'https://tomafarm-pbl-default-rtdb.asia-southeast1.firebasedatabase.app',
   );
 }

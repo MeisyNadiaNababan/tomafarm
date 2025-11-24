@@ -1,9 +1,4 @@
 import 'package:flutter/material.dart';
-import '../screens/admin/dashboard/admin_dashboard.dart';
-import '../screens/admin/nodes/admin_nodes.dart';
-import '../screens/admin/farmers/admin_farmers.dart';
-import '../screens/admin/notifications/admin_notifications.dart';
-import '../screens/admin/settings/admin_settings.dart';
 
 class AdminNavigation extends StatefulWidget {
   const AdminNavigation({super.key});
@@ -15,18 +10,55 @@ class AdminNavigation extends StatefulWidget {
 class _AdminNavigationState extends State<AdminNavigation> {
   int _currentIndex = 0;
 
-  final List<Widget> _adminScreens = [
-    const AdminDashboardScreen(),
-    const AdminNodesScreen(),
-    const AdminFarmersScreen(),
-    const AdminNotificationsScreen(),
-    const AdminSettingsScreen(),
+  final List<Widget> _screens = [
+    _buildPlaceholderScreen('Admin Dashboard'),
+    _buildPlaceholderScreen('Manajemen User'),
+    _buildPlaceholderScreen('Laporan'),
+    _buildPlaceholderScreen('Pengaturan Admin'),
   ];
+
+  static Widget _buildPlaceholderScreen(String title) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        backgroundColor: Colors.blue,
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.admin_panel_settings,
+              size: 60,
+              color: Colors.blue[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Panel Administrasi',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _adminScreens[_currentIndex],
+      body: _screens[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
@@ -45,16 +77,12 @@ class _AdminNavigationState extends State<AdminNavigation> {
             label: 'Dashboard',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.sensors),
-            label: 'Nodes',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.people),
-            label: 'Petani',
+            label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Notifikasi',
+            icon: Icon(Icons.analytics),
+            label: 'Laporan',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

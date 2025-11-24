@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+class FarmerDashboardScreen extends StatefulWidget { // Ganti nama class
+  const FarmerDashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<FarmerDashboardScreen> createState() => _FarmerDashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
   late DatabaseReference _databaseRef;
   bool _isLoading = true;
 
@@ -131,7 +131,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return Scaffold(
         backgroundColor: Theme.of(context).colorScheme.background,
         body: const Center(
-          child: CircularProgressIndicator(color: Colors.green),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.green),
+              SizedBox(height: 20),
+              Text(
+                'Memuat data sensor...',
+                style: TextStyle(color: Colors.green),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -252,7 +262,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icons.light_mode,
               title: 'Intensitas Cahaya',
               value: '${sensorData['lightIntensity']?.toStringAsFixed(0)}',
-              unit: 'Lux',
+              unit: 'Persen',
               status: _getStatusMessage('lightIntensity', sensorData['lightIntensity']),
               color: Colors.amber,
               statusColor: _getStatusColor('lightIntensity', sensorData['lightIntensity']),

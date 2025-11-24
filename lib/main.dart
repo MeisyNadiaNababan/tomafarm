@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_database/firebase_database.dart';
 
 import 'auth/home_screen.dart';
+import 'auth/signin_screen.dart'; // Tambahkan ini
+import 'auth/signup_screen.dart'; // Tambahkan ini
 import 'navigation/admin_navigation.dart';
 import 'navigation/farmer_navigation.dart';
+import 'screens/farmer/dashboard/farmer_dashboard.dart'; // Tambahkan ini
 import 'app_user.dart';
 import 'core/firebase_options.dart';
 
@@ -21,31 +23,6 @@ void main() async {
     );
     
     print('✅ Firebase initialized successfully!');
-    
-    // Test Firebase Auth
-    final auth = FirebaseAuth.instance;
-    print('🔐 Firebase Auth ready');
-    
-    // Test Firebase Database
-    try {
-      final database = FirebaseDatabase.instance;
-      print('📊 Database URL: ${database.databaseURL}');
-      
-      // Test database connection
-      final testRef = database.ref('.info/connected');
-      testRef.onValue.listen((event) {
-        final connected = event.snapshot.value as bool? ?? false;
-        print('📡 Database connection: $connected');
-      });
-      
-      // Test read/write
-      await database.ref('test').set({'test': DateTime.now().toString()});
-      await database.ref('test').remove();
-      print('✅ Database test successful');
-      
-    } catch (e) {
-      print('❌ Database test failed: $e');
-    }
     
     runApp(const MyApp());
   } catch (e) {
@@ -64,6 +41,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
+        visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
       home: const AuthWrapper(),
       debugShowCheckedModeBanner: false,
@@ -79,87 +57,128 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  User? _currentUser;
+  Map<String, dynamic>? _userData;
+  bool _isCheckingAuth = true;
+
   @override
   void initState() {
     super.initState();
     _checkCurrentUser();
   }
 
-  void _checkCurrentUser() {
-    final user = FirebaseAuth.instance.currentUser;
-    print('👤 Current user on init: ${user?.email}');
+  Future<void> _checkCurrentUser() async {
+    try {
+      // Cek user yang sudah login
+      final user = FirebaseAuth.instance.currentUser;
+      
+      if (user != null) {
+        print('✅ User already signed in: ${user.email}');
+        _currentUser = user;
+        
+        // Load user data dengan sangat cepat
+        final userData = await AppUser.getUserRole(user.uid);
+        
+        setState(() {
+          _userData = userData;
+          _isCheckingAuth = false;
+        });
+      } else {
+        setState(() {
+          _isCheckingAuth = false;
+        });
+      }
+    } catch (e) {
+      print('❌ Error checking auth: $e');
+      // Fallback langsung ke home screen
+      setState(() {
+        _isCheckingAuth = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Tampilkan loading screen hanya saat initial check
+    if (_isCheckingAuth) {
+      return _buildQuickLoadingScreen();
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        print('\n=== AUTH WRAPPER UPDATE ===');
-        print('Connection state: ${snapshot.connectionState}');
-        print('Has data: ${snapshot.hasData}');
-        print('Has error: ${snapshot.hasError}');
-        
+        // Handle connection state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildQuickLoadingScreen();
+        }
+
+        // Handle error - langsung fallback ke home screen
         if (snapshot.hasError) {
           print('❌ Auth error: ${snapshot.error}');
-          return _buildErrorScreen(snapshot.error.toString());
+          return const HomeScreen();
         }
 
-        switch (snapshot.connectionState) {
-          case ConnectionState.none:
-          case ConnectionState.waiting:
-            print('⏳ Waiting for auth state...');
-            return _buildLoadingScreen();
-            
-          case ConnectionState.active:
-          case ConnectionState.done:
-            final user = snapshot.data;
-            print('🎯 Auth state - User: ${user?.email}');
-            
-            if (user == null) {
-              print('🚪 No user, redirecting to HomeScreen');
-              return const HomeScreen();
+        // Check user status
+        final user = snapshot.data;
+        
+        if (user == null) {
+          print('🚪 No user, redirecting to HomeScreen');
+          return const HomeScreen();
+        }
+        
+        print('✅ User authenticated: ${user.email}');
+        
+        // Gunakan data yang sudah ada atau load baru
+        if (_userData != null && _currentUser?.uid == user.uid) {
+          print('🎭 Using cached user role: ${_userData!['role']}');
+          return _buildNavigationByRole(_userData!);
+        }
+
+        // Load user data baru
+        return FutureBuilder<Map<String, dynamic>>(
+          future: AppUser.getUserRole(user.uid),
+          builder: (context, roleSnapshot) {
+            // Tampilkan loading
+            if (roleSnapshot.connectionState == ConnectionState.waiting) {
+              return _buildQuickLoadingScreen();
             }
             
-            print('✅ User authenticated: ${user.email}');
-            return _buildUserNavigation(user);
-        }
+            // Handle error - default ke farmer
+            if (roleSnapshot.hasError) {
+              print('❌ Role error, default to farmer: ${roleSnapshot.error}');
+              final fallbackData = {
+                'email': user.email,
+                'role': 'farmer',
+                'displayName': user.email?.split('@').first ?? 'User',
+              };
+              return _buildNavigationByRole(fallbackData);
+            }
+            
+            // Gunakan data yang ada
+            final userData = roleSnapshot.data!;
+            
+            print('📊 User data: $userData');
+            print('🎭 User role: ${userData['role']}');
+            
+            return _buildNavigationByRole(userData);
+          },
+        );
       },
     );
   }
 
-  Widget _buildUserNavigation(User user) {
-    return FutureBuilder<Map<String, dynamic>?>(
-      future: AppUser.getUserRole(user.uid),
-      builder: (context, roleSnapshot) {
-        print('\n=== ROLE CHECK ===');
-        print('Role connection state: ${roleSnapshot.connectionState}');
-        print('Role has data: ${roleSnapshot.hasData}');
-        print('Role has error: ${roleSnapshot.hasError}');
-        
-        if (roleSnapshot.connectionState == ConnectionState.waiting) {
-          print('⏳ Loading user role...');
-          return _buildLoadingScreen();
-        }
-        
-        if (roleSnapshot.hasError) {
-          print('❌ Role error: ${roleSnapshot.error}');
-          // Default ke farmer jika error
-          return const FarmerNavigation();
-        }
-        
-        final userData = roleSnapshot.data;
-        print('📊 User data: $userData');
-        
-        final isAdmin = AppUser.isAdmin(userData);
-        print('🎭 User role: ${isAdmin ? 'ADMIN' : 'FARMER'}');
-        
-        return isAdmin ? const AdminNavigation() : const FarmerNavigation();
-      },
-    );
+  Widget _buildNavigationByRole(Map<String, dynamic> userData) {
+    final isAdmin = userData['role'] == 'admin';
+    print('🚀 Navigating to: ${isAdmin ? 'ADMIN' : 'FARMER'} dashboard');
+    
+    if (isAdmin) {
+      return const AdminNavigation();
+    } else {
+      return const FarmerNavigation();
+    }
   }
 
-  Widget _buildLoadingScreen() {
+  Widget _buildQuickLoadingScreen() {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Center(
@@ -167,21 +186,32 @@ class _AuthWrapperState extends State<AuthWrapper> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const CircularProgressIndicator(color: Colors.green),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.agriculture,
+                size: 50,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 16),
             const Text(
               'TomaFarm',
               style: TextStyle(
-                fontSize: 24,
+                fontSize: 22,
                 fontWeight: FontWeight.bold,
                 color: Colors.green,
               ),
             ),
-            const SizedBox(height: 10),
-            const Text('Memuat aplikasi...'),
-            const SizedBox(height: 10),
-            Text(
-              'Firebase: ${Firebase.apps.isNotEmpty ? '✅' : '❌'}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            const SizedBox(height: 8),
+            const Text(
+              'Menyiapkan aplikasi...',
+              style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
         ),
@@ -206,7 +236,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
               ),
               const SizedBox(height: 10),
               Text(
-                error,
+                error.length > 150 ? '${error.substring(0, 150)}...' : error,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.grey),
               ),
@@ -218,6 +248,17 @@ class _AuthWrapperState extends State<AuthWrapper> {
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('Coba Lagi'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                    (route) => false,
+                  );
+                },
+                child: const Text('Lanjutkan ke Login'),
               ),
             ],
           ),
@@ -251,7 +292,7 @@ class ErrorApp extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  error,
+                  error.length > 150 ? '${error.substring(0, 150)}...' : error,
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: Colors.grey),
                 ),

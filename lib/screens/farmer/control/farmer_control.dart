@@ -75,6 +75,11 @@ class _ControlScreenState extends State<ControlScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Kontrol Aktuator'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+      ),
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
@@ -82,14 +87,6 @@ class _ControlScreenState extends State<ControlScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Kontrol Aktuator',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
               const SizedBox(height: 8),
               Text(
                 'Kontrol manual pompa air dan lampu tumbuh',

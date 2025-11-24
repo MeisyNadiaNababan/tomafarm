@@ -119,6 +119,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final filteredLogs = _selectedFilter == 'semua' ? _logs : _getFilteredLogs();
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Riwayat'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+      ),
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SafeArea(
         child: Padding(
@@ -126,14 +131,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Riwayat Data Sensor & Kontrol',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.green,
-                ),
-              ),
               const SizedBox(height: 8),
               Text(
                 'Log aktivitas sistem dan data sensor',

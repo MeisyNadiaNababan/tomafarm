@@ -15,7 +15,7 @@ class _FarmerNavigationState extends State<FarmerNavigation> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const DashboardScreen(),
+    const FarmerDashboardScreen(),
     const ControlScreen(),
     const HistoryScreen(),
     const SettingsScreen(),

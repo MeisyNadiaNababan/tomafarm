@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../auth/home_screen.dart'; // Path yang benar
+import '../../../auth/home_screen.dart'; // Path yang diperbaiki
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,6 +13,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _isDarkMode = false;
   bool _isLoading = false;
+  bool _notificationsEnabled = true;
 
   @override
   void initState() {
@@ -31,6 +32,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {
       _isDarkMode = value;
     });
+    // TODO: Implement theme persistence
+  }
+
+  void _toggleNotifications(bool value) {
+    setState(() {
+      _notificationsEnabled = value;
+    });
+    // TODO: Implement notification settings persistence
   }
 
   Future<void> _changePassword() async {
@@ -117,6 +126,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  void _showLogoutConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Konfirmasi Logout'),
+        content: const Text('Apakah Anda yakin ingin logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _auth.signOut();
+              if (mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = _auth.currentUser;
@@ -163,7 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                user?.email ?? 'User',
+                                user?.displayName ?? user?.email?.split('@').first ?? 'User',
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
@@ -171,9 +213,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                user?.emailVerified == true ? 'Email Terverifikasi' : 'Email Belum Diverifikasi',
+                                user?.email ?? '',
                                 style: TextStyle(
                                   fontSize: 14,
+                                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                user?.emailVerified == true ? 'Email Terverifikasi' : 'Email Belum Diverifikasi',
+                                style: TextStyle(
+                                  fontSize: 12,
                                   color: user?.emailVerified == true ? Colors.green : Colors.orange,
                                 ),
                               ),
@@ -204,32 +254,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           _buildSettingItem(
                             icon: Icons.palette,
                             title: 'Tema Aplikasi',
-                            subtitle: _isDarkMode ? 'Gelap' : 'Terang',
+                            subtitle: _isDarkMode ? 'Mode Gelap' : 'Mode Terang',
                             trailing: Switch(
                               value: _isDarkMode,
                               onChanged: _toggleTheme,
                               activeColor: Colors.green,
                             ),
-                            onTap: () {},
+                            onTap: () => _toggleTheme(!_isDarkMode),
                           ),
                           const Divider(height: 1),
                           _buildSettingItem(
                             icon: Icons.notifications,
                             title: 'Notifikasi',
-                            subtitle: 'Aktif',
+                            subtitle: _notificationsEnabled ? 'Aktif' : 'Nonaktif',
                             trailing: Switch(
-                              value: true,
-                              onChanged: (value) {},
+                              value: _notificationsEnabled,
+                              onChanged: _toggleNotifications,
                               activeColor: Colors.green,
                             ),
-                            onTap: () {},
+                            onTap: () => _toggleNotifications(!_notificationsEnabled),
                           ),
                           const Divider(height: 1),
                           _buildSettingItem(
                             icon: Icons.lock,
                             title: 'Ubah Password',
                             subtitle: 'Reset password via email',
-                            trailing: const Icon(Icons.chevron_right),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                             onTap: _changePassword,
                           ),
                           const Divider(height: 1),
@@ -237,11 +287,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             icon: Icons.language,
                             title: 'Bahasa',
                             subtitle: 'Indonesia',
-                            trailing: const Icon(Icons.chevron_right),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                             onTap: () {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text('Fitur bahasa akan segera hadir'),
+                                  backgroundColor: Colors.blue,
                                 ),
                               );
                             },
@@ -251,7 +302,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             icon: Icons.info,
                             title: 'Tentang Aplikasi',
                             subtitle: 'Versi 1.0.0',
-                            trailing: const Icon(Icons.chevron_right),
+                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
                             onTap: _showAboutDialog,
                           ),
                         ],
@@ -264,16 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        await _auth.signOut();
-                        if (mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => const HomeScreen()),
-                            (route) => false,
-                          );
-                        }
-                      },
+                      onPressed: _showLogoutConfirmation,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.red,
                         foregroundColor: Colors.white,
