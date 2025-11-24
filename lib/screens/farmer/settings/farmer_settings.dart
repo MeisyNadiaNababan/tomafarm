@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../../auth/home_screen.dart'; // Path yang diperbaiki
+import '../../../auth/home_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,70 +11,26 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  bool _isDarkMode = false;
-  bool _isLoading = false;
   bool _notificationsEnabled = true;
 
   @override
   void initState() {
     super.initState();
-    _loadCurrentTheme();
+    _loadNotificationSettings();
   }
 
-  void _loadCurrentTheme() {
-    final brightness = WidgetsBinding.instance.window.platformBrightness;
+  void _loadNotificationSettings() {
+    // Load dari local storage - default true
     setState(() {
-      _isDarkMode = brightness == Brightness.dark;
+      _notificationsEnabled = true;
     });
-  }
-
-  void _toggleTheme(bool value) {
-    setState(() {
-      _isDarkMode = value;
-    });
-    // TODO: Implement theme persistence
   }
 
   void _toggleNotifications(bool value) {
     setState(() {
       _notificationsEnabled = value;
     });
-    // TODO: Implement notification settings persistence
-  }
-
-  Future<void> _changePassword() async {
-    final user = _auth.currentUser;
-    if (user == null || user.email == null) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await _auth.sendPasswordResetEmail(email: user.email!);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Email reset password telah dikirim'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
+    // TODO: Save to local storage
   }
 
   void _showAboutDialog() {
@@ -169,173 +125,164 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Profile Section
+            Container(
               padding: const EdgeInsets.all(16),
-              child: Column(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFE8F5E8), Color(0xFFC8E6C9)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Row(
                 children: [
-                  // Profile Section
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
+                      color: Colors.green,
+                      shape: BoxShape.circle,
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.person, color: Colors.green, size: 30),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user?.displayName ?? user?.email?.split('@').first ?? 'User',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                user?.email ?? '',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                user?.emailVerified == true ? 'Email Terverifikasi' : 'Email Belum Diverifikasi',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: user?.emailVerified == true ? Colors.green : Colors.orange,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: const Icon(Icons.person, color: Colors.white, size: 30),
                   ),
-                  const SizedBox(height: 16),
-
-                  // Settings List
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(0, 3),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.displayName ?? user?.email?.split('@').first ?? 'User',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
                           ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          _buildSettingItem(
-                            icon: Icons.palette,
-                            title: 'Tema Aplikasi',
-                            subtitle: _isDarkMode ? 'Mode Gelap' : 'Mode Terang',
-                            trailing: Switch(
-                              value: _isDarkMode,
-                              onChanged: _toggleTheme,
-                              activeColor: Colors.green,
-                            ),
-                            onTap: () => _toggleTheme(!_isDarkMode),
-                          ),
-                          const Divider(height: 1),
-                          _buildSettingItem(
-                            icon: Icons.notifications,
-                            title: 'Notifikasi',
-                            subtitle: _notificationsEnabled ? 'Aktif' : 'Nonaktif',
-                            trailing: Switch(
-                              value: _notificationsEnabled,
-                              onChanged: _toggleNotifications,
-                              activeColor: Colors.green,
-                            ),
-                            onTap: () => _toggleNotifications(!_notificationsEnabled),
-                          ),
-                          const Divider(height: 1),
-                          _buildSettingItem(
-                            icon: Icons.lock,
-                            title: 'Ubah Password',
-                            subtitle: 'Reset password via email',
-                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                            onTap: _changePassword,
-                          ),
-                          const Divider(height: 1),
-                          _buildSettingItem(
-                            icon: Icons.language,
-                            title: 'Bahasa',
-                            subtitle: 'Indonesia',
-                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Fitur bahasa akan segera hadir'),
-                                  backgroundColor: Colors.blue,
-                                ),
-                              );
-                            },
-                          ),
-                          const Divider(height: 1),
-                          _buildSettingItem(
-                            icon: Icons.info,
-                            title: 'Tentang Aplikasi',
-                            subtitle: 'Versi 1.0.0',
-                            trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-                            onTap: _showAboutDialog,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Logout Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _showLogoutConfirmation,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
                         ),
-                      ),
-                      child: const Text(
-                        'Logout',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.email ?? '',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.green[700],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: user?.emailVerified == true ? Colors.green : Colors.orange,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            user?.emailVerified == true ? 'Email Terverifikasi' : 'Email Belum Diverifikasi',
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Settings List
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    _buildSettingItem(
+                      icon: Icons.notifications,
+                      title: 'Notifikasi',
+                      subtitle: _notificationsEnabled ? 'Aktif' : 'Nonaktif',
+                      trailing: Switch(
+                        value: _notificationsEnabled,
+                        onChanged: _toggleNotifications,
+                        activeColor: Colors.green,
+                      ),
+                      onTap: () => _toggleNotifications(!_notificationsEnabled),
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingItem(
+                      icon: Icons.language,
+                      title: 'Bahasa',
+                      subtitle: 'Indonesia',
+                      trailing: const Icon(Icons.check, color: Colors.green),
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Bahasa Indonesia aktif'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
+                    _buildSettingItem(
+                      icon: Icons.info,
+                      title: 'Tentang Aplikasi',
+                      subtitle: 'Versi 1.0.0',
+                      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                      onTap: _showAboutDialog,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Logout Button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _showLogoutConfirmation,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 4,
+                ),
+                child: const Text(
+                  'Logout',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -366,7 +313,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         subtitle,
         style: TextStyle(
           fontSize: 14,
-          color: Theme.of(context).colorScheme.onBackground.withOpacity(0.6),
+          color: Colors.grey[600],
         ),
       ),
       trailing: trailing,
