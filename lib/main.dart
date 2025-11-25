@@ -3,48 +3,148 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'auth/home_screen.dart';
-import 'auth/signin_screen.dart'; // Tambahkan ini
-import 'auth/signup_screen.dart'; // Tambahkan ini
+import 'auth/signin_screen.dart';
+import 'auth/signup_screen.dart';
 import 'navigation/admin_navigation.dart';
 import 'navigation/farmer_navigation.dart';
-import 'screens/farmer/dashboard/farmer_dashboard.dart'; // Tambahkan ini
+import 'screens/farmer/dashboard/farmer_dashboard.dart';
 import 'app_user.dart';
 import 'core/firebase_options.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  
+// Global flag untuk mencegah multiple initialization
+bool _isInitialized = false;
+
+void main() {
   print('🚀 Starting TomaFarm App...');
   
-  try {
-    print('🔥 Initializing Firebase...');
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    
-    print('✅ Firebase initialized successfully!');
-    
-    runApp(const MyApp());
-  } catch (e) {
-    print('❌ Firebase initialization failed: $e');
-    runApp(ErrorApp(error: e.toString()));
+  // Prevent multiple main() calls
+  if (_isInitialized) {
+    print('⚠️ App already initialized, ignoring duplicate call');
+    return;
   }
+  _isInitialized = true;
+  
+  runApp(const TomaFarmApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class TomaFarmApp extends StatefulWidget {
+  const TomaFarmApp({super.key});
+
+  @override
+  State<TomaFarmApp> createState() => _TomaFarmAppState();
+}
+
+class _TomaFarmAppState extends State<TomaFarmApp> {
+  late Future<FirebaseApp> _firebaseInitialization;
+
+  @override
+  void initState() {
+    super.initState();
+    _firebaseInitialization = _initializeFirebase();
+  }
+
+  Future<FirebaseApp> _initializeFirebase() async {
+    try {
+      print('🔥 Initializing Firebase...');
+      
+      // Cek apakah Firebase app sudah ada
+      try {
+        final existingApp = Firebase.app();
+        print('✅ Using existing Firebase app: ${existingApp.name}');
+        return existingApp;
+      } catch (e) {
+        // Jika belum ada, initialize baru
+        print('🆕 Creating new Firebase app...');
+        final app = await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+        print('✅ Firebase initialized successfully!');
+        return app;
+      }
+    } catch (e) {
+      print('❌ Firebase initialization failed: $e');
+      
+      // Handle duplicate app error gracefully - FIXED
+      if (e.toString().contains('duplicate-app') || e.toString().contains('[DEFAULT]')) {
+        print('⚠️ Firebase app already exists, using existing instance');
+        return Firebase.app();
+      }
+      
+      rethrow;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder(
+      future: _firebaseInitialization,
+      builder: (context, snapshot) {
+        // Loading state
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildInitialLoadingScreen();
+        }
+
+        // Error state
+        if (snapshot.hasError) {
+          print('❌ Firebase error in FutureBuilder: ${snapshot.error}');
+          return ErrorApp(error: snapshot.error.toString());
+        }
+
+        // Success state
+        return MaterialApp(
+          title: 'TomaFarm',
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+            useMaterial3: true,
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+          ),
+          home: const AuthWrapper(),
+          debugShowCheckedModeBanner: false,
+        );
+      },
+    );
+  }
+
+  Widget _buildInitialLoadingScreen() {
     return MaterialApp(
-      title: 'TomaFarm',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        useMaterial3: true,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
+      home: Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.agriculture,
+                  size: 50,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const CircularProgressIndicator(color: Colors.green),
+              const SizedBox(height: 16),
+              const Text(
+                'TomaFarm',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Initializing app...',
+                style: TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
       ),
-      home: const AuthWrapper(),
-      debugShowCheckedModeBanner: false,
     );
   }
 }
@@ -69,20 +169,35 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   Future<void> _checkCurrentUser() async {
     try {
-      // Cek user yang sudah login
+      // Tunggu sebentar untuk memastikan Firebase siap
+      await Future.delayed(const Duration(milliseconds: 100));
+      
       final user = FirebaseAuth.instance.currentUser;
       
       if (user != null) {
         print('✅ User already signed in: ${user.email}');
         _currentUser = user;
         
-        // Load user data dengan sangat cepat
-        final userData = await AppUser.getUserRole(user.uid);
-        
-        setState(() {
-          _userData = userData;
-          _isCheckingAuth = false;
-        });
+        try {
+          final userData = await AppUser.getUserRole(user.uid)
+              .timeout(const Duration(seconds: 3));
+          
+          setState(() {
+            _userData = userData;
+            _isCheckingAuth = false;
+          });
+        } catch (e) {
+          print('⚠️ User data load timeout, using default');
+          final fallbackData = {
+            'email': user.email,
+            'role': 'farmer',
+            'displayName': user.email?.split('@').first ?? 'User',
+          };
+          setState(() {
+            _userData = fallbackData;
+            _isCheckingAuth = false;
+          });
+        }
       } else {
         setState(() {
           _isCheckingAuth = false;
@@ -90,7 +205,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
       }
     } catch (e) {
       print('❌ Error checking auth: $e');
-      // Fallback langsung ke home screen
       setState(() {
         _isCheckingAuth = false;
       });
@@ -99,7 +213,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    // Tampilkan loading screen hanya saat initial check
     if (_isCheckingAuth) {
       return _buildQuickLoadingScreen();
     }
@@ -107,18 +220,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Handle connection state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildQuickLoadingScreen();
         }
 
-        // Handle error - langsung fallback ke home screen
         if (snapshot.hasError) {
-          print('❌ Auth error: ${snapshot.error}');
+          print('❌ Auth stream error: ${snapshot.error}');
           return const HomeScreen();
         }
 
-        // Check user status
         final user = snapshot.data;
         
         if (user == null) {
@@ -128,22 +238,19 @@ class _AuthWrapperState extends State<AuthWrapper> {
         
         print('✅ User authenticated: ${user.email}');
         
-        // Gunakan data yang sudah ada atau load baru
         if (_userData != null && _currentUser?.uid == user.uid) {
           print('🎭 Using cached user role: ${_userData!['role']}');
           return _buildNavigationByRole(_userData!);
         }
 
-        // Load user data baru
         return FutureBuilder<Map<String, dynamic>>(
-          future: AppUser.getUserRole(user.uid),
+          future: AppUser.getUserRole(user.uid)
+              .timeout(const Duration(seconds: 2)),
           builder: (context, roleSnapshot) {
-            // Tampilkan loading
             if (roleSnapshot.connectionState == ConnectionState.waiting) {
               return _buildQuickLoadingScreen();
             }
             
-            // Handle error - default ke farmer
             if (roleSnapshot.hasError) {
               print('❌ Role error, default to farmer: ${roleSnapshot.error}');
               final fallbackData = {
@@ -154,7 +261,6 @@ class _AuthWrapperState extends State<AuthWrapper> {
               return _buildNavigationByRole(fallbackData);
             }
             
-            // Gunakan data yang ada
             final userData = roleSnapshot.data!;
             
             print('📊 User data: $userData');
@@ -187,81 +293,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
           children: [
             const CircularProgressIndicator(color: Colors.green),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.agriculture,
-                size: 50,
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(height: 16),
             const Text(
-              'TomaFarm',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Menyiapkan aplikasi...',
+              'Loading...',
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildErrorScreen(String error) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 60),
-              const SizedBox(height: 20),
-              const Text(
-                'Terjadi Kesalahan',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                error.length > 150 ? '${error.substring(0, 150)}...' : error,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () => main(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Coba Lagi'),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                    (route) => false,
-                  );
-                },
-                child: const Text('Lanjutkan ke Login'),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -286,24 +322,40 @@ class ErrorApp extends StatelessWidget {
                 const Icon(Icons.error, color: Colors.red, size: 60),
                 const SizedBox(height: 20),
                 const Text(
-                  'Firebase Initialization Failed',
+                  'Initialization Error',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  error.length > 150 ? '${error.substring(0, 150)}...' : error,
+                  _getErrorMessage(error),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton(
-                  onPressed: () => main(),
+                  onPressed: () {
+                    // Safe restart
+                    _isInitialized = false;
+                    runApp(const TomaFarmApp());
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
                     foregroundColor: Colors.white,
                   ),
-                  child: const Text('Restart App'),
+                  child: const Text('Try Again'),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () {
+                    // Continue without Firebase
+                    _isInitialized = false;
+                    runApp(MaterialApp(
+                      home: const HomeScreen(),
+                      debugShowCheckedModeBanner: false,
+                    ));
+                  },
+                  child: const Text('Continue to App'),
                 ),
               ],
             ),
@@ -311,5 +363,16 @@ class ErrorApp extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _getErrorMessage(String error) {
+    if (error.contains('duplicate-app') || error.contains('[DEFAULT]')) {
+      return 'Firebase is already initialized. The app will continue normally.';
+    } else if (error.contains('network') || error.contains('SocketException')) {
+      return 'Network connection issue. Please check your internet connection.';
+    } else if (error.contains('permission') || error.contains('403')) {
+      return 'Firebase permission denied. Please contact support.';
+    }
+    return error.length > 150 ? '${error.substring(0, 150)}...' : error;
   }
 }

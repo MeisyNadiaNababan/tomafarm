@@ -14,10 +14,9 @@ dependencies:
   firebase_core: ^4.2.1
   firebase_auth: ^6.1.2
   firebase_database: ^12.0.4
-  fl_chart: ^0.66.2
+  fl_chart: ^1.1.1  # Update to latest version
   intl: ^0.18.1
   provider: ^6.1.1
-  syncfusion_flutter_charts: ^25.1.43
   http: ^1.1.0
 
 dev_dependencies:

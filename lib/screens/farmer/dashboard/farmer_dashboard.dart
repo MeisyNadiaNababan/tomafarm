@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'farmer_notifications.dart';
+import 'simple_chart.dart';
 
 class FarmerDashboardScreen extends StatefulWidget {
   const FarmerDashboardScreen({super.key});
@@ -28,6 +29,11 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     'autoMode': true,
   };
 
+  // Data untuk chart
+  List<ChartData> temperatureData = [];
+  List<ChartData> humidityData = [];
+  List<ChartData> soilMoistureData = [];
+
   @override
   void initState() {
     super.initState();
@@ -35,12 +41,42 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     _setupRealtimeListener();
     _loadNotificationSettings();
     _setupNotificationListener();
+    _initializeChartData();
+  }
+
+  void _initializeChartData() {
+    // Data dummy untuk chart
+    temperatureData = [
+      ChartData('08:00', 25.0),
+      ChartData('10:00', 27.0),
+      ChartData('12:00', 30.0),
+      ChartData('14:00', 32.0),
+      ChartData('16:00', 28.0),
+      ChartData('18:00', 26.0),
+    ];
+
+    humidityData = [
+      ChartData('08:00', 65.0),
+      ChartData('10:00', 62.0),
+      ChartData('12:00', 58.0),
+      ChartData('14:00', 55.0),
+      ChartData('16:00', 60.0),
+      ChartData('18:00', 68.0),
+    ];
+
+    soilMoistureData = [
+      ChartData('08:00', 45.0),
+      ChartData('10:00', 42.0),
+      ChartData('12:00', 38.0),
+      ChartData('14:00', 35.0),
+      ChartData('16:00', 50.0),
+      ChartData('18:00', 55.0),
+    ];
   }
 
   void _loadNotificationSettings() async {
-    // Load notification settings from local storage or defaults
     setState(() {
-      _notificationsEnabled = true; // Default enabled
+      _notificationsEnabled = true;
     });
   }
 
@@ -55,7 +91,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     }
   }
 
-  /// Listener untuk sensor dan kontrol
   void _setupRealtimeListener() {
     // SENSOR
     _databaseRef.child('sensorData').onValue.listen((event) {
@@ -72,13 +107,15 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
             };
             _isLoading = false;
           });
+
+          _updateChartData();
         }
       } catch (e) {
         print('Error reading sensor data: $e');
       }
     });
 
-    // ACTUATOR - REAL-TIME INTEGRATION
+    // ACTUATOR
     _databaseRef.child('control').onValue.listen((event) {
       try {
         final data = event.snapshot.value;
@@ -97,7 +134,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
       }
     });
 
-    // Set loading false after 2 seconds if no data
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted && _isLoading) {
         setState(() {
@@ -107,7 +143,25 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     });
   }
 
-  /// Helper untuk konversi ke double dengan aman
+  void _updateChartData() {
+    final now = DateTime.now();
+    final timeLabel = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+    
+    setState(() {
+      // Update data chart dengan data terbaru
+      temperatureData.add(ChartData(timeLabel, sensorData['temperature']));
+      humidityData.add(ChartData(timeLabel, sensorData['humidity']));
+      soilMoistureData.add(ChartData(timeLabel, sensorData['soilMoisture']));
+      
+      // Batasi jumlah data yang ditampilkan
+      if (temperatureData.length > 6) {
+        temperatureData.removeAt(0);
+        humidityData.removeAt(0);
+        soilMoistureData.removeAt(0);
+      }
+    });
+  }
+
   double _toDouble(dynamic value) {
     if (value == null) return 0.0;
     if (value is double) return value;
@@ -116,7 +170,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     return 0.0;
   }
 
-  /// Status sensor
   String _getStatusMessage(String type, double value) {
     switch (type) {
       case 'temperature':
@@ -132,7 +185,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     }
   }
 
-  /// Warna status
   Color _getStatusColor(String type, double value) {
     switch (type) {
       case 'temperature':
@@ -174,7 +226,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
             child: Row(
               children: [
                 const Text(
-                  'Notifikasi',
+                  '🔔 Notifikasi',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -183,7 +235,12 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 const Spacer(),
                 if (_unreadNotifications > 0)
                   TextButton(
-                    onPressed: () => NotificationService.markAllAsRead(),
+                    onPressed: () {
+                      NotificationService.markAllAsRead();
+                      setState(() {
+                        _unreadNotifications = 0;
+                      });
+                    },
                     child: const Text('Tandai Sudah Dibaca'),
                   ),
                 IconButton(
@@ -367,7 +424,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 const SizedBox(height: 24),
                 _buildActuatorStatus(),
                 const SizedBox(height: 24),
-                _buildChartPlaceholder(),
+                _buildChartSection(),
+                const SizedBox(height: 24),
+                _buildQuickActions(),
               ],
             ),
           ),
@@ -376,7 +435,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     );
   }
 
-  /// HEADER dengan notifikasi
   Widget _buildHeader() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -406,7 +464,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 ],
               ),
             ),
-            // Bell Icon dengan badge
             Stack(
               children: [
                 IconButton(
@@ -461,7 +518,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     );
   }
 
-  /// GRID SENSOR - LEBIH WARNA-WARNI
   Widget _buildSensorGrid() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -487,7 +543,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               status: _getStatusMessage('temperature', sensorData['temperature']),
               color: Colors.red,
               statusColor: _getStatusColor('temperature', sensorData['temperature']),
-              gradient: const [Color(0xFFFFE0E0), Color(0xFFFF5252)],
+              backgroundColor: Colors.red[50]!,
             ),
             _buildSensorCard(
               icon: Icons.water_drop,
@@ -497,7 +553,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               status: _getStatusMessage('humidity', sensorData['humidity']),
               color: Colors.blue,
               statusColor: _getStatusColor('humidity', sensorData['humidity']),
-              gradient: const [Color(0xFFE3F2FD), Color(0xFF2196F3)],
+              backgroundColor: Colors.blue[50]!,
             ),
             _buildSensorCard(
               icon: Icons.grass,
@@ -507,7 +563,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               status: _getStatusMessage('soilMoisture', sensorData['soilMoisture']),
               color: Colors.brown,
               statusColor: _getStatusColor('soilMoisture', sensorData['soilMoisture']),
-              gradient: const [Color(0xFFEFEBE9), Color(0xFF795548)],
+              backgroundColor: Colors.brown[50]!,
             ),
             _buildSensorCard(
               icon: Icons.light_mode,
@@ -517,7 +573,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               status: _getStatusMessage('lightIntensity', sensorData['lightIntensity']),
               color: Colors.amber,
               statusColor: _getStatusColor('lightIntensity', sensorData['lightIntensity']),
-              gradient: const [Color(0xFFFFF8E1), Color(0xFFFFC107)],
+              backgroundColor: Colors.amber[50]!,
             ),
           ],
         ),
@@ -525,7 +581,6 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     );
   }
 
-  /// CARD SENSOR - LEBIH COLORFUL
   Widget _buildSensorCard({
     required IconData icon,
     required String title,
@@ -534,22 +589,19 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     required String status,
     required Color color,
     required Color statusColor,
-    required List<Color> gradient,
+    required Color backgroundColor,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -562,23 +614,23 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
+                  color: color.withOpacity(0.2),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
+                child: Icon(icon, color: color, size: 20),
               ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.3),
+                  color: color.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   unit,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10,
-                    color: Colors.white,
+                    color: color,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -588,10 +640,10 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: color,
               height: 1.2,
             ),
           ),
@@ -599,7 +651,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
             title,
             style: TextStyle(
               fontSize: 14,
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.grey[700],
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -607,16 +659,30 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.3),
+              color: statusColor.withOpacity(0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white,
-                fontWeight: FontWeight.w500,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  status,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: statusColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -624,22 +690,18 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     );
   }
 
-  /// STATUS AKTUATOR - INTEGRASI REAL-TIME
   Widget _buildActuatorStatus() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFE8F5E8), Color(0xFFC8E6C9)],
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.green.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -669,6 +731,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 status: actuatorData['pump'] ? 'ON' : 'OFF',
                 statusColor: actuatorData['pump'] ? Colors.green : Colors.red,
                 mode: actuatorData['autoMode'] ? 'Auto' : 'Manual',
+                backgroundColor: Colors.blue[50]!,
               ),
               const SizedBox(width: 12),
               _buildActuatorItem(
@@ -677,6 +740,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 status: actuatorData['light'] ? 'ON' : 'OFF',
                 statusColor: actuatorData['light'] ? Colors.green : Colors.red,
                 mode: actuatorData['autoMode'] ? 'Auto' : 'Manual',
+                backgroundColor: Colors.amber[50]!,
               ),
               const SizedBox(width: 12),
               _buildActuatorItem(
@@ -685,6 +749,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
                 status: actuatorData['autoMode'] ? 'Auto' : 'Manual',
                 statusColor: actuatorData['autoMode'] ? Colors.blue : Colors.orange,
                 mode: 'Aktif',
+                backgroundColor: Colors.purple[50]!,
               ),
             ],
           ),
@@ -692,8 +757,9 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.green.withOpacity(0.2)),
             ),
             child: Row(
               children: [
@@ -728,18 +794,20 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     required String status,
     required Color statusColor,
     required String mode,
+    required Color backgroundColor,
   }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: backgroundColor,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: statusColor.withOpacity(0.3)),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.2),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+              color: Colors.grey.withOpacity(0.1),
+              blurRadius: 2,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -772,11 +840,20 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               ),
             ),
             const SizedBox(height: 2),
-            Text(
-              mode,
-              style: TextStyle(
-                fontSize: 10,
-                color: Colors.grey[600],
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+              ),
+              child: Text(
+                mode,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -785,22 +862,18 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
     );
   }
 
-  /// CHART (placeholder) - LEBIH COLORFUL
-  Widget _buildChartPlaceholder() {
+  Widget _buildChartSection() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)],
-        ),
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.withOpacity(0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withOpacity(0.3),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -812,7 +885,7 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
               Icon(Icons.trending_up, color: Colors.blue),
               SizedBox(width: 8),
               Text(
-                'Trend Data Sensor',
+                '📈 Trend Data Sensor',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -822,34 +895,111 @@ class _FarmerDashboardScreenState extends State<FarmerDashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          Container(
-            height: 150,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bar_chart, size: 40, color: Colors.blue),
-                  SizedBox(height: 8),
-                  Text(
-                    '📈 Fitur Chart Akan Segera Hadir',
-                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Visualisasi data real-time dalam grafik',
-                    style: TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
+          SimpleChart(
+            data: temperatureData,
+            title: 'Suhu (°C)',
+            color: Colors.red,
+          ),
+          const SizedBox(height: 16),
+          SimpleChart(
+            data: humidityData,
+            title: 'Kelembapan Udara (%)',
+            color: Colors.blue,
+          ),
+          const SizedBox(height: 16),
+          SimpleChart(
+            data: soilMoistureData,
+            title: 'Kelembapan Tanah (%)',
+            color: Colors.brown,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.purple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.purple.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.flash_on, color: Colors.purple),
+              SizedBox(width: 8),
+              Text(
+                'Akses Cepat',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.purple,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildQuickActionItem(
+                icon: Icons.control_camera,
+                title: 'Kontrol',
+                color: Colors.green,
+              ),
+              _buildQuickActionItem(
+                icon: Icons.history,
+                title: 'Riwayat',
+                color: Colors.blue,
+              ),
+              _buildQuickActionItem(
+                icon: Icons.settings,
+                title: 'Pengaturan',
+                color: Colors.orange,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionItem({
+    required IconData icon,
+    required String title,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            color: color,
+          ),
+        ),
+      ],
     );
   }
 
