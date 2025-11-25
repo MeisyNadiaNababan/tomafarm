@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../screens/admin/dashboard/admin_dashboard.dart';
 
 class AdminNavigation extends StatefulWidget {
   const AdminNavigation({super.key});
@@ -11,9 +12,10 @@ class _AdminNavigationState extends State<AdminNavigation> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    _buildPlaceholderScreen('Admin Dashboard'),
+    const AdminDashboardScreen(),
     _buildPlaceholderScreen('Manajemen User'),
-    _buildPlaceholderScreen('Laporan'),
+    _buildPlaceholderScreen('Manajemen Lahan'),
+    _buildPlaceholderScreen('Kontrol Pompa'),
     _buildPlaceholderScreen('Pengaturan Admin'),
   ];
 
@@ -81,8 +83,12 @@ class _AdminNavigationState extends State<AdminNavigation> {
             label: 'User',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.analytics),
-            label: 'Laporan',
+            icon: Icon(Icons.agriculture),
+            label: 'Lahan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.control_camera),
+            label: 'Kontrol',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),
